@@ -5,7 +5,7 @@ import os
 import sys
 import subprocess
 import numpy as np
-
+##push the changes
 # ── auto-install core deps ────────────────────────────────────────────────────
 def _pip(*args):
     subprocess.check_call([sys.executable, "-m", "pip", "install", *args])
@@ -86,8 +86,25 @@ def process_deepfilter(input_path, output_path, status_cb):
     model, df_state, _ = init_df()
     status_cb("Loading audio...")
     audio, _ = load_audio(read_path, sr=df_state.sr())
+
     status_cb("Running neural noise filter...")
-    enhanced = enhance(model, df_state, audio)
+    # chunk processing to avoid OOM on large files
+    sr = df_state.sr()
+    chunk_size = sr * 30  # 30 seconds per chunk
+    audio_len = audio.shape[-1]
+
+    if audio_len <= chunk_size:
+        enhanced = enhance(model, df_state, audio)
+    else:
+        import torch
+        chunks = []
+        for i in range(0, audio_len, chunk_size):
+            chunk = audio[..., i:i + chunk_size]
+            status_cb(f"Processing chunk {i//chunk_size + 1}/{(audio_len//chunk_size)+1}...")
+            enhanced_chunk = enhance(model, df_state, chunk)
+            chunks.append(enhanced_chunk)
+        enhanced = torch.cat(chunks, dim=-1)
+
     out_wav = os.path.splitext(output_path)[0] + ".wav"
     status_cb("Saving output...")
     save_audio(out_wav, enhanced, df_state.sr())
