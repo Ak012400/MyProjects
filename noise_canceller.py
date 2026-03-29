@@ -7,26 +7,42 @@ import subprocess
 import numpy as np
 
 # ── auto-install core deps ────────────────────────────────────────────────────
-def _ensure(*pkgs):
-    for pkg in pkgs:
-        mod = pkg.replace("-", "_")
-        try:
-            __import__(mod)
-        except ImportError:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+def _pip(*args):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", *args])
 
-_ensure("soundfile", "noisereduce", "imageio-ffmpeg")
+def _ensure(mod, pkg):
+    try:
+        __import__(mod)
+    except ImportError:
+        print(f"Installing {pkg}...")
+        _pip(pkg)
+
+_ensure("soundfile",      "soundfile")
+_ensure("noisereduce",    "noisereduce")
+_ensure("imageio_ffmpeg", "imageio-ffmpeg")
 
 import soundfile as sf
 import noisereduce as nr
 import imageio_ffmpeg
 
 # ── DeepFilterNet (advanced mode) ─────────────────────────────────────────────
-try:
-    from df.enhance import enhance, init_df, load_audio, save_audio
-    DEEPFILTER_AVAILABLE = True
-except ImportError:
-    DEEPFILTER_AVAILABLE = False
+def _try_df():
+    try:
+        from df.enhance import enhance, init_df, load_audio, save_audio
+        return True
+    except Exception:
+        return False
+
+# if deepfilternet installed but torch missing, auto-install compatible torch
+if not _try_df():
+    import importlib.util
+    if importlib.util.find_spec("df") is not None:
+        print("Installing torch 2.1.0 CPU + deepfilternet (one-time ~230MB)...")
+        _pip("torch==2.1.0", "torchaudio==2.1.0",
+             "--index-url", "https://download.pytorch.org/whl/cpu")
+        _pip("deepfilternet")
+
+DEEPFILTER_AVAILABLE = _try_df()
 
 # ─────────────────────────────────────────────────────────────────────────────
 BG      = "#0a0a0f"
