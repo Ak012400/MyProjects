@@ -27,6 +27,7 @@ import imageio_ffmpeg
 
 # ── DeepFilterNet (advanced mode) ─────────────────────────────────────────────
 def _try_df():
+    global enhance, init_df, load_audio, save_audio
     try:
         from df.enhance import enhance, init_df, load_audio, save_audio
         return True
